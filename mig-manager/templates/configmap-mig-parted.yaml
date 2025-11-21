@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mig-parted-config
+  labels:
+    {{- include "mig-manager.labels" . | nindent 4 }}
+data:
+  config.yaml: |
+    version: v1
+    mig-configs:
+    {{- range $configName, $configValue := .Values.migParted.configs }}
+      {{ $configName }}:
+      {{- toYaml $configValue | nindent 8 }}
+    {{- end }}

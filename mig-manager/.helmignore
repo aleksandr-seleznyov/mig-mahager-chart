@@ -1,0 +1,41 @@
+# Patterns to ignore when building packages.
+# This supports shell glob patterns, relative paths, and negated patterns
+# (prefixed with !).
+# https://helm.sh/docs/chart_template_guide/chart_templates_files/#helm-ignore-file
+.DS_Store
+.git
+.gitignore
+.bzr
+.bzrignore
+.hg
+.hgignore
+.svn
+.svnignore
+*.swp
+*.swo
+*~
+.idea
+*.sublime-project
+*.sublime-workspace
+.vscode
+*.swp
+*.swc
+*.swo
+*~
+cover
+.cover
+.cache
+nosetests.xml
+junit.xml
+coverage.xml
+*.cover
+.hypothesis
+.pytest_cache
+*.egg
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/

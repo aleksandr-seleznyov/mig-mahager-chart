@@ -1,0 +1,57 @@
+# Default values for mig-manager.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+image:
+  repository: ghcr.io/nvidia/k8s-mig-manager
+  pullPolicy: IfNotPresent
+  tag: latest
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+# RBAC Configuration
+rbac:
+  create: true
+
+# ServiceAccount Configuration
+serviceAccount:
+  create: true
+  annotations: {}
+  name: "mig-manager"
+
+# Node selector to run only on GPU nodes
+nodeSelector:
+  nvidia.com/gpu: "true"
+
+# Tolerations for GPU nodes
+tolerations:
+  - operator: "Exists"
+
+# GPU Clients configuration
+gpuClients:
+  systemdServices:
+    - nvsm.service
+    - nvsm-mqtt.service
+    - nvsm-core.service
+    - nvidia-dcgm.service
+    - dcgm.service
+    - dcgm-exporter.service
+
+# MIG Parted configuration
+migParted:
+  withReboot: false
+  configs:
+    all-disabled:
+      - devices: all
+        mig-enabled: false
+
+# Host volumes
+hostVolumes:
+  hostRoot:
+    path: /
+    type: Directory
+  hostSys:
+    path: /sys
+    type: Directory

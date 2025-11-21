@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: gpu-clients
+  labels:
+    {{- include "mig-manager.labels" . | nindent 4 }}
+data:
+  clients.yaml: |
+    version: v1
+    systemd-services:
+    {{- range .Values.gpuClients.systemdServices }}
+      - {{ . }}
+    {{- end }}

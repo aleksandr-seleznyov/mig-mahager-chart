@@ -1,0 +1,201 @@
+---
+# Source: mig-manager/templates/serviceaccount.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: mig-manager
+  labels:
+    helm.sh/chart: mig-manager-0.1.0
+    app.kubernetes.io/name: mig-manager
+    app.kubernetes.io/instance: release-name
+    app: mig-manager
+    app.kubernetes.io/version: "1.0.0"
+    app.kubernetes.io/managed-by: Helm
+---
+# Source: mig-manager/templates/configmap-gpu-clients.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: gpu-clients
+  labels:
+    helm.sh/chart: mig-manager-0.1.0
+    app.kubernetes.io/name: mig-manager
+    app.kubernetes.io/instance: release-name
+    app: mig-manager
+    app.kubernetes.io/version: "1.0.0"
+    app.kubernetes.io/managed-by: Helm
+data:
+  clients.yaml: |
+    version: v1
+    systemd-services:
+      - nvsm.service
+      - nvsm-mqtt.service
+      - nvsm-core.service
+      - nvidia-dcgm.service
+      - dcgm.service
+      - dcgm-exporter.service
+---
+# Source: mig-manager/templates/configmap-mig-parted.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mig-parted-config
+  labels:
+    helm.sh/chart: mig-manager-0.1.0
+    app.kubernetes.io/name: mig-manager
+    app.kubernetes.io/instance: release-name
+    app: mig-manager
+    app.kubernetes.io/version: "1.0.0"
+    app.kubernetes.io/managed-by: Helm
+data:
+  config.yaml: |
+    version: v1
+    mig-configs:
+      active::
+        - devices:
+          - 0
+          mig-devices:
+            1g.10gb: 7
+          mig-enabled: true
+        - devices:
+          - 1
+          mig-devices:
+            1g.10gb: 3
+          mig-enabled: true
+      all-disabled:
+        - devices: all
+          mig-enabled: false
+---
+# Source: mig-manager/templates/clusterrole.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: release-name-mig-manager-role
+  labels:
+    helm.sh/chart: mig-manager-0.1.0
+    app.kubernetes.io/name: mig-manager
+    app.kubernetes.io/instance: release-name
+    app: mig-manager
+    app.kubernetes.io/version: "1.0.0"
+    app.kubernetes.io/managed-by: Helm
+rules:
+  - apiGroups: [""]
+    resources: ["nodes"]
+    verbs: ["get","list","watch","patch","update"]
+  - apiGroups: [""]
+    resources: ["pods","pods/exec","pods/log"]
+    verbs: ["get","list","watch","delete"]
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    verbs: ["get","list","watch"]
+  - apiGroups: ["apps"]
+    resources: ["daemonsets"]
+    verbs: ["get","list","watch","patch","update"]
+  - apiGroups: [""]
+    resources: ["events"]
+    verbs: ["create","patch","update","list","watch"]
+---
+# Source: mig-manager/templates/clusterrolebinding.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: release-name-mig-manager-binding
+  labels:
+    helm.sh/chart: mig-manager-0.1.0
+    app.kubernetes.io/name: mig-manager
+    app.kubernetes.io/instance: release-name
+    app: mig-manager
+    app.kubernetes.io/version: "1.0.0"
+    app.kubernetes.io/managed-by: Helm
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: release-name-mig-manager-role
+subjects:
+  - kind: ServiceAccount
+    name: mig-manager
+    namespace: default
+---
+# Source: mig-manager/templates/daemonset.yaml
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: release-name-mig-manager
+  labels:
+    helm.sh/chart: mig-manager-0.1.0
+    app.kubernetes.io/name: mig-manager
+    app.kubernetes.io/instance: release-name
+    app: mig-manager
+    app.kubernetes.io/version: "1.0.0"
+    app.kubernetes.io/managed-by: Helm
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: mig-manager
+      app.kubernetes.io/instance: release-name
+      app: mig-manager
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: mig-manager
+        app.kubernetes.io/instance: release-name
+        app: mig-manager
+    spec:
+      hostPID: true
+      hostIPC: true
+      serviceAccountName: mig-manager
+      nodeSelector:
+        nvidia.com/gpu: "true"
+      tolerations:
+        - operator: Exists
+      containers:
+        - name: nvidia-mig-manager
+          image: "qweqwe/k8s-mig-manager:123"
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            privileged: true
+          env:
+            - name: NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+            - name: CONFIG_FILE
+              value: "/mig-parted-config/config.yaml"
+            - name: GPU_CLIENTS_FILE
+              value: "/gpu-clients/clients.yaml"
+            - name: HOST_ROOT_MOUNT
+              value: "/host"
+            - name: HOST_NVIDIA_DIR
+              value: "/usr/local/nvidia"
+            - name: HOST_KUBELET_SYSTEMD_SERVICE
+              value: "kubelet.service"
+            - name: HOST_MIG_MANAGER_STATE_FILE
+              value: "/etc/systemd/system/nvidia-mig-manager.service.d/override.conf"
+            - name: WITH_SHUTDOWN_HOST_GPU_CLIENTS
+              value: "true"
+            - name: WITH_REBOOT
+              value: "false"
+          volumeMounts:
+            - mountPath: /host
+              name: host-root
+            - mountPath: /sys
+              name: host-sys
+            - mountPath: /gpu-clients
+              name: gpu-clients
+            - mountPath: /mig-parted-config
+              name: mig-parted-config
+      volumes:
+        - name: host-root
+          hostPath:
+            path: /
+            type: Directory
+        - name: host-sys
+          hostPath:
+            path: /sys
+            type: Directory
+        - name: gpu-clients
+          configMap:
+            name: gpu-clients
+        - name: mig-parted-config
+          configMap:
+            name: mig-parted-config

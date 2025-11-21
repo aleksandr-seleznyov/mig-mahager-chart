@@ -1,0 +1,27 @@
+# Default values for mig-manager.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+image:
+  repository: qweqwe/k8s-mig-manager
+  pullPolicy: IfNotPresent
+  tag: 123
+
+# Node selector to run only on GPU nodes
+nodeSelector:
+  nvidia.com/gpu: "true"
+
+# MIG Parted configuration
+migParted:
+  withReboot: false
+  configs:
+    active:
+      - devices: [0]
+        mig-enabled: true
+        mig-devices:
+          "1g.10gb": 7
+      - devices: [1]
+        mig-enabled: true
+        mig-devices:
+          "1g.10gb": 3
+

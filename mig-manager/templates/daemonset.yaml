@@ -1,0 +1,77 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: {{ include "mig-manager.fullname" . }}
+  labels:
+    {{- include "mig-manager.labels" . | nindent 4 }}
+spec:
+  selector:
+    matchLabels:
+      {{- include "mig-manager.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "mig-manager.selectorLabels" . | nindent 8 }}
+    spec:
+      hostPID: true
+      hostIPC: true
+      serviceAccountName: {{ include "mig-manager.serviceAccountName" . }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: nvidia-mig-manager
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          securityContext:
+            privileged: true
+          env:
+            - name: NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+            - name: CONFIG_FILE
+              value: "/mig-parted-config/config.yaml"
+            - name: GPU_CLIENTS_FILE
+              value: "/gpu-clients/clients.yaml"
+            - name: HOST_ROOT_MOUNT
+              value: "/host"
+            - name: HOST_NVIDIA_DIR
+              value: "/usr/local/nvidia"
+            - name: HOST_KUBELET_SYSTEMD_SERVICE
+              value: "kubelet.service"
+            - name: HOST_MIG_MANAGER_STATE_FILE
+              value: "/etc/systemd/system/nvidia-mig-manager.service.d/override.conf"
+            - name: WITH_SHUTDOWN_HOST_GPU_CLIENTS
+              value: "true"
+            - name: WITH_REBOOT
+              value: {{ .Values.migParted.withReboot | quote }}
+          volumeMounts:
+            - mountPath: /host
+              name: host-root
+            - mountPath: /sys
+              name: host-sys
+            - mountPath: /gpu-clients
+              name: gpu-clients
+            - mountPath: /mig-parted-config
+              name: mig-parted-config
+      volumes:
+        - name: host-root
+          hostPath:
+            path: {{ .Values.hostVolumes.hostRoot.path }}
+            type: {{ .Values.hostVolumes.hostRoot.type }}
+        - name: host-sys
+          hostPath:
+            path: {{ .Values.hostVolumes.hostSys.path }}
+            type: {{ .Values.hostVolumes.hostSys.type }}
+        - name: gpu-clients
+          configMap:
+            name: gpu-clients
+        - name: mig-parted-config
+          configMap:
+            name: mig-parted-config
